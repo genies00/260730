@@ -87,7 +87,10 @@ for col in ["rank", "audiCnt", "audiAcc", "scrnCnt", "showCnt", "rankInten"]:
     if col in df.columns:
         df[col] = pd.to_numeric(df[col])
 
-# ── 전일(또는 전주) 대비 순위 변동 표시 ─────────────
+TEN_MILLION = 10_000_000
+MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
+
+# ── 전일(또는 전주) 대비 순위 변동 ──────────────────
 def rank_change(row):
     tag = row.get("rankOldAndNew", "")
     if tag == "NEW":
@@ -103,6 +106,15 @@ def rank_change(row):
 
 df["증감"] = df.apply(rank_change, axis=1)
 
+# ── 순위 메달 + 영화명 + 천만 트로피 ─────────────────
+def format_title(row):
+    medal = MEDALS.get(int(row["rank"]), "")
+    trophy = " 🏆" if row["audiAcc"] >= TEN_MILLION else ""
+    prefix = f"{medal} " if medal else ""
+    return f"{prefix}{row['movieNm']}{trophy}"
+
+df["영화명_표시"] = df.apply(format_title, axis=1)
+
 # 1위 영화 지표 카드 세 장
 top = df.sort_values("rank").iloc[0]
 c1, c2, c3 = st.columns(3)
@@ -111,12 +123,23 @@ c2.metric("관객수", f"{int(top['audiCnt']):,}명")
 c3.metric("누적 관객", f"{int(top['audiAcc']):,}명")
 
 # 표를 한국어 열 이름으로 정리
-table = df[["rank", "증감", "movieNm", "openDt", "audiCnt", "audiAcc", "scrnCnt"]].copy()
+table = df[["rank", "증감", "영화명_표시", "openDt", "audiCnt", "audiAcc", "scrnCnt"]].copy()
 table.columns = ["순위", "증감", "영화명", "개봉일", "관객수", "누적관객", "스크린수"]
 table = table.sort_values("순위").reset_index(drop=True)
 
+# ── 증감 컬럼 색상: 상승=빨강, 하락=파랑 ─────────────
+def color_change(val):
+    if isinstance(val, str) and val.startswith("▲"):
+        return "color: red; font-weight: bold;"
+    if isinstance(val, str) and val.startswith("▼"):
+        return "color: blue; font-weight: bold;"
+    return ""
+
+styled_table = table.style.applymap(color_change, subset=["증감"])
+
 st.subheader("📋 박스오피스 TOP 10")
-st.dataframe(table, use_container_width=True)
+st.caption("🏆 누적관객 1,000만 이상 · 🥇🥈🥉 현재 순위 1·2·3위")
+st.dataframe(styled_table, use_container_width=True)
 
 st.subheader("📈 관객수 상위 5편")
 top5 = table.sort_values("관객수", ascending=False).head(5)
