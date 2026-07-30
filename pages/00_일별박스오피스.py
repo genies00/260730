@@ -135,7 +135,11 @@ def color_change(val):
         return "color: blue; font-weight: bold;"
     return ""
 
-styled_table = table.style.applymap(color_change, subset=["증감"])
+styler = table.style
+if hasattr(styler, "map"):
+    styled_table = styler.map(color_change, subset=["증감"])
+else:
+    styled_table = styler.applymap(color_change, subset=["증감"])
 
 st.subheader("📋 박스오피스 TOP 10")
 st.caption("🏆 누적관객 1,000만 이상 · 🥇🥈🥉 현재 순위 1·2·3위")
